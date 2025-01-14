@@ -1,0 +1,30 @@
+{
+  "name": "pptx-gslides-manager",
+  "version": "1.0.0",
+  "description": "A Node.js library for uploading, processing, and synchronizing PowerPoint (PPTX) and Google Slides presentations",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "pptx",
+    "google-slides",
+    "bubble",
+    "pinecone",
+    "openai",
+    "presentations",
+    "node",
+    "parser",
+    "slides"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paulogustavopeixoto/pptx-gslides-manager.git"
+  },
+  "author": "Paulo Assis Peixoto",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/paulogustavopeixoto/pptx-gslides-manager/issues"
+  },
+  "homepage": "https://github.com/paulogustavopeixoto/pptx-gslides-manager#readme"
+}
