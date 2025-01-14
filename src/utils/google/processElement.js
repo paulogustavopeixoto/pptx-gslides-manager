@@ -1,5 +1,5 @@
 // src/googleSlides/shapesAndTables.js
-const { rgbToHex, applyBBCode, normalizeBBCodeAcrossNewlines } = require("../utils");
+const { rgbToHex } = require("../");
 
 /**
  * Recursively processes an element from the Slides API, extracting shapes (text, tables, images),
@@ -70,7 +70,6 @@ function processElement(element, shapesWithText, shapeOrder) {
           row.tableCells.forEach((cell, columnIndex) => {
             const cellTextElements = [];
             let cellTextContent = "";
-            let cellTextFormatted = "";
 
             if (cell.text && cell.text.textElements) {
               cell.text.textElements.forEach((textElement) => {
@@ -100,14 +99,6 @@ function processElement(element, shapesWithText, shapeOrder) {
                       fontSize: fontSize,
                       fontColor: foregroundColor ? rgbToHex(foregroundColor) : null,
                     });
-
-                    // Append to BBCode-formatted string (if needed)
-                    cellTextFormatted += applyBBCode(content, {
-                      bold: isBold,
-                      italic: isItalic,
-                      underline: isUnderlined,
-                    });
-                    cellTextFormatted = normalizeBBCodeAcrossNewlines(cellTextFormatted);
                   }
                 }
               });
@@ -120,8 +111,6 @@ function processElement(element, shapesWithText, shapeOrder) {
                 rowIndex,
                 columnIndex,
                 text: cellTextContent,
-                // textElements: cellTextElements,
-                // textFormatted: cellTextFormatted,
               });
             }
           });
