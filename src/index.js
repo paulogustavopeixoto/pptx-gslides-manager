@@ -1,8 +1,10 @@
 // src/index.js
 const presentation = require("./presentation");
-const googleAuth = require('./config/authenticationMethod');
+const auth = require('./config/authenticationMethod');
+const utils = require('./utils');
 
 module.exports = {
   presentation,
-  googleAuth
+  auth,
+  utils
 };
