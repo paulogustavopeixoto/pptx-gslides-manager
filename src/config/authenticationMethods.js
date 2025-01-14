@@ -1,4 +1,3 @@
-// src/config/googleAuth.js
 const { google } = require("googleapis");
 
 /**
