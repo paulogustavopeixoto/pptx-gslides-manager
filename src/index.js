@@ -1,5 +1,8 @@
-const auth = require('./config/authenticationMethods');
+// src/index.js
+const presentation = require("./presentation");
+const googleAuth = require('./config/authenticationMethod');
 
 module.exports = {
-    auth,
+  presentation,
+  googleAuth
 };
