@@ -1,0 +1,1 @@
+# pptx-gslides-manager
