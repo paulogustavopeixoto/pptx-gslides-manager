@@ -26,5 +26,8 @@
   "bugs": {
     "url": "https://github.com/paulogustavopeixoto/pptx-gslides-manager/issues"
   },
-  "homepage": "https://github.com/paulogustavopeixoto/pptx-gslides-manager#readme"
+  "homepage": "https://github.com/paulogustavopeixoto/pptx-gslides-manager#readme",
+  "dependencies": {
+    "googleapis": "^144.0.0"
+  }
 }

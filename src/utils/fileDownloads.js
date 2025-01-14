@@ -2,7 +2,7 @@ const fs = require("fs");
 const axios = require('axios');
 
 
-async function downloadFile(url, downloadPath) {
+async function download(url, downloadPath) {
     const response = await axios({ url, method: 'GET', responseType: 'stream' });
     return new Promise((resolve, reject) => {
       const writer = fs.createWriteStream(downloadPath);
@@ -12,4 +12,4 @@ async function downloadFile(url, downloadPath) {
     });
 }
 
-module.exports = downloadFile;
+module.exports = download;
