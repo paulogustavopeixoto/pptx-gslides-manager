@@ -24,4 +24,4 @@ async function auth(SERVICE_ACCOUNT_KEY) {
   return jwtClient;
 };
 
-module.exports = { auth };
+module.exports = auth;
