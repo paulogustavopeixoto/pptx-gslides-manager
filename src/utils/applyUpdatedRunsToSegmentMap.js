@@ -1,3 +1,5 @@
+const preserveParagraphBoundaries = require('./preserveParagraphBoundaries');
+const recalcParagraphAndRunIndices = require('./recalcParagraphAndRunIndices');
 
 
 /**
