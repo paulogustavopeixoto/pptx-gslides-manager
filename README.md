@@ -11,7 +11,7 @@ __/\\\\\\\\\\\\\____/\\\\\\\\\\\\\____/\\\\\\\\\\\\\\\__/\\\_______/\\\_________
 # pptx-gslides-manager
 
 ## Overview
-A Node.js library for uploading, processing, and synchronizing PowerPoint (PPTX) and Google Slides presentations
+Node.js library for uploading PPTX files to Google Slides, extracting slide shapes and tables, and managing slide decks.
 
 ## Installation
 To integrate pptx-gslides-manager into your project, run the following command:
