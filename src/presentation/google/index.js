@@ -4,6 +4,7 @@ const duplicatePresentation = require('./duplicatePresentation');
 const getSlides = require('./slidesExtraction');
 const generateSlideImage = require('./generateSlideImage');
 const deletePresentation = require('./deletePresentation');
+const getPresentationText = require('./getPresentationText');
 
 
 module.exports = {
@@ -12,5 +13,6 @@ module.exports = {
     duplicate: duplicatePresentation,
     getSlides: getSlides,
     getSlideImage: generateSlideImage,
-    delete: deletePresentation
+    delete: deletePresentation,
+    getPresentationText
 }
