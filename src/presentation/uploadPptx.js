@@ -13,7 +13,7 @@ const upload = {
      * @returns {Promise<string>} - The newly created Google Slides file ID.
      * @throws {Error} - If the upload fails or the file path isn't a remote URL.
      */
-    googleSlides: async function (auth, filepath, fileName) {
+    google: async function (auth, filepath, fileName) {
         try {
             const drive = google.drive({ version: 'v3', auth });
             const downloadPath = path.join('/tmp', fileName);

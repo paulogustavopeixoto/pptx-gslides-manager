@@ -10,7 +10,7 @@ const generateLink = {
    * @returns {string} - The shareable link.
    * @throws {Error} - If the link generation fails.
    */
-  googleSlides: async function(auth, fileId) {
+  google: async function(auth, fileId) {
     const drive = google.drive({ version: 'v3', auth });
 
     try {
