@@ -7,6 +7,7 @@ async function deletePresentation(auth, presentationId) {
       
       await drive.files.delete({
         fileId: presentationId,
+        supportsAllDrives: true
       });
       
       console.log(`Presentation with ID '${presentationId}' deleted successfully.`);

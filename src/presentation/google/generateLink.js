@@ -11,6 +11,7 @@ async function generateLink(auth, fileId) {
       requestBody: {
         role: 'reader',
         type: 'anyone',
+        supportsAllDrives: true,
       },
     });
 
@@ -18,6 +19,7 @@ async function generateLink(auth, fileId) {
     const result = await drive.files.get({
       fileId: fileId,
       fields: 'webViewLink, webContentLink',
+      supportsAllDrives: true,
     });
 
     console.log('Generated shareable link:', result.data.webViewLink);
