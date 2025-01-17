@@ -47,14 +47,12 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
         }
   
         // (B) Delete existing text
-        if (newText.length > 0) {
-          requests.push({
-            deleteText: {
-              objectId: shapeId,
-              textRange: { type: "ALL" },
-            },
-          });
-        };
+        requests.push({
+          deleteText: {
+            objectId: shapeId,
+            textRange: { type: "ALL" },
+          },
+        });
   
         // (C) Insert the entire text at once
         if (newText.length > 0) {
@@ -106,15 +104,13 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
           console.log(`[${shapeId}] Flattened runs => newText:\n"${newText}"`);
   
           // (A) Delete existing text in that cell
-          if (newText.length > 0) {
-            requests.push({
-              deleteText: {
-                objectId: shapeId,
-                cellLocation: { rowIndex, columnIndex },
-                textRange: { type: "ALL" },
-              },
-            });
-          };
+          requests.push({
+            deleteText: {
+              objectId: shapeId,
+              cellLocation: { rowIndex, columnIndex },
+              textRange: { type: "ALL" },
+            },
+          });
   
           // (B) Insert the new text
           if (newText.length > 0) {

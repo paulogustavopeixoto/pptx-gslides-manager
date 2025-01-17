@@ -119,17 +119,25 @@ function reapplyFormatting(
       }
   
       // Reapply bullets only if bulletStyle is present AND the paragraph has visible text
-      const hasVisibleText = paragraph.runs.some((r) => r.text.trim().length > 0);
+      const hasVisibleText = paragraph.runs.some((r) => (r.text || "").trim().length > 0);
   
-      // Reapply bullets if present
-      if (paragraph.bullet && 
-        paragraph.bullet !== null &&
-        paragraph.bullet.bulletStyle && 
-        hasVisibleText) {
+      // 1) Bullets: create or delete
+      // If bullet != null & we have text, create bullets. Else, delete them
+      if (paragraph.bullet && paragraph.bullet.bulletStyle && hasVisibleText) {
+        // Optionally map your "glyph" to a preset:
+        // For example:
+        const bulletGlyph = paragraph.bullet.glyph;  // e.g. "i.", "ii.", "iii."
+        let bulletPreset = "BULLET_DISC_CIRCLE_SQUARE"; // default fallback
+
+        // A simple mapping example:
+        if (bulletGlyph === "i." || bulletGlyph === "ii." || bulletGlyph === "iii.") {
+          // Use alpha Roman, but it won't be exact: "I, II, III" typically
+          bulletPreset = "NUMBERED_UPPERROMAN_UPPERALPHA_DIGIT";
+        }
+        // ADD MORE MAPPINGS HERE
   
         console.log(`-> Creating bullet for paragraph ${paragraph.id}, bullet=`, paragraph.bullet);
-        const bulletStyle = paragraph.bullet;
-        const bulletReq = {
+        requests.push({
           createParagraphBullets: {
             objectId: shapeId,
             textRange: {
@@ -137,13 +145,23 @@ function reapplyFormatting(
               startIndex: pStartIndex,
               endIndex: pEndIndex,
             },
-            bulletPreset: bulletStyle.glyph
-              ? bulletStyle.glyphType
-              : "BULLET_DISC_CIRCLE_SQUARE",
+            bulletPreset,
             ...(isTable && cellLocation ? { cellLocation } : {}),
           },
-        };
-        requests.push(bulletReq);
+        });
+      } else {
+        // If bullet is null or no visible text, remove bullets
+        requests.push({
+          deleteParagraphBullets: {
+            objectId: shapeId,
+            textRange: {
+              type: "FIXED_RANGE",
+              startIndex: pStartIndex,
+              endIndex: pEndIndex,
+            },
+            ...(isTable && cellLocation ? { cellLocation } : {}),
+          },
+        });
       }
   
       // Reapply paragraph style if fields are present
