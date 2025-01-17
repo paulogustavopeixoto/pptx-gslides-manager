@@ -219,7 +219,9 @@ function extractParagraphsAndRuns(textElements) {
     if (te.paragraphMarker) {
       // If there is an open paragraph, finalize its endIndex
       if (currentParagraph) {
-        currentParagraph.endIndex = te.endIndex;
+        if (currentParagraph.runs.length) {
+          currentParagraph.endIndex = currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
+        }
         paragraphs.push(currentParagraph);
       }
       // Create a new paragraph
