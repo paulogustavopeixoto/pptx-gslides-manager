@@ -1,16 +1,28 @@
 const { google } = require("googleapis");
 
 
-async function duplicatePresentation(auth, presentationId) {
+async function duplicatePresentation(auth, presentationId, driveId = null) {
 
   try {
     const drive = google.drive({ version: 'v3', auth });
-    // Create a copy of the presentation
+    
+    // Build your requestBody
+    const requestBody = {
+      name: 'Copied Presentation'  // Name of the copied file
+    };
+    // If you want to place the copy in a specific Shared Drive or folder:
+    if (driveId) {
+      requestBody.parents = [driveId];
+    }
+    
+    // Create a copy
     const response = await drive.files.copy({
       fileId: presentationId,
-      requestBody: {
-        name: 'Copied Presentation', // Name of the copied file
-      }
+      requestBody,
+      // ***** This is crucial if the file or the new copy is in a Shared Drive *****
+      supportsAllDrives: true,
+      // Optionally specify fields if you want only certain properties in response
+      fields: 'id, name'
     });
     
     const copiedPresentationId = response.data.id;  // The ID of the copied file
