@@ -11,8 +11,8 @@ async function generateLink(auth, fileId) {
       requestBody: {
         role: 'reader',
         type: 'anyone',
-        supportsAllDrives: true,
       },
+      supportsAllDrives: true,
     });
 
     // Generate the shareable link
