@@ -19,15 +19,19 @@ function filterOriginalSegmentMap(page) {
         };
     } else if (shape.type === 'table' && Array.isArray(shape.tableCells)) {
         // Convert shape.tableCells array => shapeMap w/ "rowIndex-colIndex" keys
-        const cellsObj = [];
+        const tableCells = [];  // truly an array
         shape.tableCells.forEach((cell) => {
-        cellsObj[`${cell.rowIndex}-${cell.columnIndex}`] = {
+          tableCells.push({
+            rowIndex: cell.rowIndex,
+            columnIndex: cell.columnIndex,
             paragraphs: cell.paragraphs,
-        };
+          });
         });
+
+        // Then store:
         originalSegmentMap[shape.shapeId] = {
-        type: 'table',
-        cells: cellsObj,
+          type: 'table',
+          tableCells,
         };
     }
     // ... handle image, group, etc. if needed
@@ -50,16 +54,19 @@ function filterOriginalSegmentMap(page) {
         };
       } else if (shapeData.type === "table") {
         const filteredCells = {};
-        for (const cellKey in shapeData.cells) {
-          const cellData = shapeData.cells[cellKey];
+        shapeData.tableCells.forEach((cell) => {
+          const cellKey = `${cell.rowIndex}-${cell.columnIndex}`;
           const allRuns = [];
-          cellData.paragraphs.forEach((paragraph) => {
+      
+          cell.paragraphs.forEach((paragraph) => {
             paragraph.runs.forEach((r) => {
               allRuns.push({ id: r.id, text: r.text });
             });
           });
+      
           filteredCells[cellKey] = { runs: allRuns };
-        }
+        });
+      
         runsOnlyMap[shapeId] = {
           type: "table",
           cells: filteredCells,
