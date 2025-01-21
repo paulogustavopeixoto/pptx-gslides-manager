@@ -44,7 +44,7 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
           for (const run of paragraph.runs) {
             const newRun = updatedShape.runs.find((r) => r.id === run.id);
             // Only apply if 'customization' is 'CUSTOM' (as in your original code)
-            if (newRun && updatedShape.customization === 'CUSTOM') {
+            if (newRun) {
               run.text = newRun.text;
             }
           }

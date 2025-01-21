@@ -1,4 +1,3 @@
-// src/googleSlides/getSlides.js
 const { google } = require("googleapis");
 
 /**
@@ -10,18 +9,21 @@ const { google } = require("googleapis");
  *       {
  *         shapeId: string,
  *         type: "text" | "table" | "image" | "group" | etc.,
- *         text: string,                // Plaintext extracted from runs (if text shape)
- *         paragraphs: [...],          // Detailed paragraphs/runs for text or table cells
- *         tableCells: [ {...}, ... ], // If it's a table, each cell with text/paragraphs
- *         imageUrl: string,           // If it's an image shape
+ *         text: string,          // Plaintext extracted from runs (if text shape)
+ *         paragraphs: [...],    // Detailed paragraphs/runs for text shapes
+ *         cells: {              // For tables: object keyed by "row-col"
+ *           "0-0": { paragraphs: [...], text: "..." },
+ *           "0-1": { paragraphs: [...], text: "..." },
+ *           ...
+ *         },
+ *         imageUrl: string,     // If it's an image shape
  *         // etc.
  *       },
  *       ...
  *     ]
  *   }
  *
- * If `pageObjectId` is provided, we filter the final array so only that
- * single slide object is returned. If none is found with that ID, the array is empty.
+ * If `pageObjectId` is provided, only return that single slide (or empty if not found).
  *
  * @param {object} auth - Authenticated google.auth.JWT or OAuth2 client.
  * @param {string} presentationId - The ID of the Google Slides presentation.
@@ -52,8 +54,7 @@ async function getSlides(auth, presentationId, pageObjectId = null) {
       shapes: [],
     };
 
-    // shapeOrder just if you want a sequential "order" for shapes
-    const shapeOrder = { order: 1 };
+    const shapeOrder = { order: 1 }; // increment as we process shapes
 
     if (slide.pageElements) {
       slide.pageElements.forEach((element) => {
@@ -68,39 +69,34 @@ async function getSlides(auth, presentationId, pageObjectId = null) {
   // If pageObjectId is provided, filter down
   // -------------------------------------------------
   if (pageObjectId) {
-    // We only keep the page(s) that match the ID
-    // (Typically, there should only be 1 match)
     return pages.filter((p) => p.pageObjectId === pageObjectId);
   } else {
-    // Otherwise, return all
     return pages;
   }
 }
 
 // ------------------------------------------------------------------------
-// processElement: Similar to your snippet, but includes 'paragraphs' array
-// for text and for table cells, so we always store the runs. This ensures
-// consistent structure for shapes in the final array.
+// processElement: parse each element into a "shape" object
 // ------------------------------------------------------------------------
 function processElement(element, shapesArray, shapeOrder) {
-  if (!element.objectId) return; // Sometimes there's no objectId?
+  if (!element.objectId) return;
 
-  // We’ll build a shape object, then push it to shapesArray
   const shapeObj = {
     shapeId: element.objectId,
     order: shapeOrder.order++,
   };
 
-  // 1) Standard Text Shape
+  // 1) Text Shape
   if (element.shape && element.shape.text) {
     shapeObj.type = "text";
+
     // Extract paragraphs/runs
     const paragraphs = extractParagraphsAndRuns(element.shape.text.textElements);
     shapeObj.paragraphs = paragraphs;
 
     // Combine all runs into plaintext
     const plainText = paragraphs
-      .flatMap((para) => para.runs)  // gather all runs from all paragraphs
+      .flatMap((para) => para.runs)
       .map((r) => r.text)
       .join("");
     shapeObj.text = plainText;
@@ -113,36 +109,31 @@ function processElement(element, shapesArray, shapeOrder) {
   // 2) Table
   else if (element.table) {
     shapeObj.type = "table";
-    shapeObj.tableCells = []; // We'll store rowIndex, colIndex, plus text & paragraphs
+    // Instead of "tableCells: []", we'll build "cells: { 'row-col': {...} }"
+    shapeObj.cells = {};
 
     if (Array.isArray(element.table.tableRows)) {
       element.table.tableRows.forEach((row, rowIndex) => {
         if (Array.isArray(row.tableCells)) {
           row.tableCells.forEach((cell, columnIndex) => {
+            // Extract paragraphs/runs for this cell
+            let paragraphs = [];
+            let plainText = "";
+
             if (cell.text && cell.text.textElements) {
-              // Extract paragraphs
-              const paragraphs = extractParagraphsAndRuns(cell.text.textElements);
-              // Combine runs into plain text
-              const plainText = paragraphs
-                .flatMap((para) => para.runs)
+              paragraphs = extractParagraphsAndRuns(cell.text.textElements);
+              plainText = paragraphs
+                .flatMap((p) => p.runs)
                 .map((r) => r.text)
                 .join("");
-
-              shapeObj.tableCells.push({
-                rowIndex,
-                columnIndex,
-                text: plainText,
-                paragraphs,
-              });
-            } else {
-              // Even an empty cell is included?
-              shapeObj.tableCells.push({
-                rowIndex,
-                columnIndex,
-                text: "",
-                paragraphs: [],
-              });
             }
+
+            // key => "rowIndex-colIndex"
+            const cellKey = `${rowIndex}-${columnIndex}`;
+            shapeObj.cells[cellKey] = {
+              paragraphs,
+              text: plainText,
+            };
           });
         }
       });
@@ -155,14 +146,14 @@ function processElement(element, shapesArray, shapeOrder) {
   // 3) Groups
   else if (element.elementGroup) {
     shapeObj.type = "group";
-    // We could store child shapes here, or flatten them into shapesArray
-    // For demonstration, let's flatten them at top-level:
+    // Flatten children or push as-is
     if (Array.isArray(element.elementGroup.children)) {
       element.elementGroup.children.forEach((child) => {
         processElement(child, shapesArray, shapeOrder);
       });
     }
-    // We won't push "group" as a separate shape to shapesArray unless you want to
+    // Optionally push the group shape itself if you need it
+    // shapesArray.push(shapeObj);
     return;
   }
 
@@ -174,57 +165,36 @@ function processElement(element, shapesArray, shapeOrder) {
     return;
   }
 
-  // 5) If we didn't match text, table, group, or image...
-  // we can either push a shape with type "unknown" or skip it
+  // 5) Fallback / Unknown
   shapeObj.type = "unknown";
   shapesArray.push(shapeObj);
 }
 
 /**
- * Extracts paragraphs and runs from Google Slides text elements, preserving
- * startIndex/endIndex. This lets you reapply formatting accurately later.
+ * Extracts paragraphs and runs from Google Slides text elements.
+ * This helps keep track of styles, offsets, etc.
  *
- * @param {Array} textElements - The array of text elements from Slides API (shape.text.textElements).
- * @returns {Array} An array of paragraph objects, each containing metadata and an array of runs.
- *
- * Each paragraph object has the shape:
- * {
- *   id: string,
- *   startIndex: number,
- *   endIndex: number,
- *   paragraphStyle: object,
- *   bullet: object | null,
- *   runs: [
- *     {
- *       id: string,
- *       startIndex: number,
- *       endIndex: number,
- *       text: string,
- *       style: object
- *     },
- *     ...
- *   ]
- * }
+ * @param {Array} textElements - shape.text.textElements from the Slides API
+ * @returns {Array} Array of paragraph objects
  */
 function extractParagraphsAndRuns(textElements) {
   const paragraphs = [];
-
   let currentParagraph = null;
   let paragraphCounter = 0;
   let runCounter = 0;
   let currentIndex = 0;
 
   for (const te of textElements) {
-    // If we see a paragraphMarker, close the previous paragraph, then start a new one
+    // If we see a paragraphMarker, close the previous paragraph, start a new one
     if (te.paragraphMarker) {
-      // If there is an open paragraph, finalize its endIndex
       if (currentParagraph) {
+        // finalize endIndex of the old paragraph
         if (currentParagraph.runs.length) {
-          currentParagraph.endIndex = currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
+          currentParagraph.endIndex =
+            currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
         }
         paragraphs.push(currentParagraph);
       }
-      // Create a new paragraph
       currentParagraph = {
         id: `paragraph-${paragraphCounter++}`,
         startIndex: currentIndex,
@@ -235,7 +205,7 @@ function extractParagraphsAndRuns(textElements) {
       };
     }
 
-    // If it's a text run, attach it to currentParagraph (if any)
+    // If it's a textRun, append it to the current paragraph
     if (te.textRun && te.textRun.content) {
       const text = te.textRun.content;
       const length = text.length;
@@ -256,18 +226,16 @@ function extractParagraphsAndRuns(textElements) {
     }
   }
 
-  // If we ended with an open paragraph, finalize it
+  // finalize the last paragraph if open
   if (currentParagraph) {
-    // Optionally set endIndex to currentIndex for the last paragraph
-    currentParagraph.endIndex = currentIndex;
+    if (currentParagraph.runs.length) {
+      currentParagraph.endIndex =
+        currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
+    }
     paragraphs.push(currentParagraph);
   }
 
   return paragraphs;
 }
 
-
-// ------------------------------------------------------------------------
-// Export
-// ------------------------------------------------------------------------
 module.exports = getSlides;
