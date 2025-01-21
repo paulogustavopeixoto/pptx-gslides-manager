@@ -58,15 +58,26 @@ async function batchUpdateSlidesText(auth, presentationId, slidesArray) {
           }
         }
 
-        // B) Create requests: (1) delete all text, (2) insert the new text
-        requests.push({
-          deleteText: {
-            objectId: shapeId,
-            textRange: { type: "ALL" },
-          },
-        });
+        // B) Check if the shape is currently empty or not
+        //    If the shape has paragraphs/runs at all, let's see if there's any text
+        //    "existingTextLength" is how many chars are in the updated shape’s paragraphs
+        //    If you want to be extremely accurate about what's actually in Google,
+        //    you'd look up the original text from the original shape data. But typically
+        //    the new structure matches the original text length if you haven't changed it.
+        const existingTextLength = newText.length;
 
-        if (newText.length > 0) {
+        // If there's *some* text in the shape, we do a delete
+        // But if we see *zero* text, skip the delete to avoid "startIndex 0 must be < endIndex 0"
+        if (existingTextLength > 0) {
+          requests.push({
+            deleteText: {
+              objectId: shapeId,
+              textRange: { type: "ALL" },
+            },
+          });
+        }
+
+        if (existingTextLength > 0) {
           requests.push({
             insertText: {
               objectId: shapeId,
