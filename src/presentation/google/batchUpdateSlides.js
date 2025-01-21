@@ -124,14 +124,22 @@ async function batchUpdateSlidesText(auth, presentationId, slidesArray) {
 
           console.log(`\n[${shapeId}] TABLE cell(${rowIndex},${columnIndex}) => newText:\n"${newText}"`);
 
+          // If the cell had any text, do a deleteText
+          // because "ALL" fails if the cell truly has zero length
+          // So let's see if there's existing text length in `newText`
+          const existingTextLength = newText.length;
+
+          // (A) Delete existing text in that cell only if not empt
           // A) Delete existing text in that cell
-          requests.push({
-            deleteText: {
-              objectId: shapeId,
-              cellLocation: { rowIndex, columnIndex },
-              textRange: { type: "ALL" },
-            },
-          });
+          if (existingTextLength > 0) {
+            requests.push({
+              deleteText: {
+                objectId: shapeId,
+                cellLocation: { rowIndex, columnIndex },
+                textRange: { type: "ALL" },
+              },
+            });
+          }
 
           // B) Insert the new text (if any)
           if (newText.length > 0) {
