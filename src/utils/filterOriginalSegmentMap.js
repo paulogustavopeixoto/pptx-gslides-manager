@@ -20,7 +20,7 @@ function filterOriginalSegmentMap(page) {
     } else if (shape.type === 'table') {
         // Convert shape.tableCells array => shapeMap w/ "rowIndex-colIndex" keys
         const cellsObj = {};
-        shape.tableCells.forEach((cell) => {
+        shape.cells.forEach((cell) => {
         cellsObj[`${cell.rowIndex}-${cell.columnIndex}`] = {
             paragraphs: cell.paragraphs,
         };
