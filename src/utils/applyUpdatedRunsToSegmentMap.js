@@ -43,7 +43,6 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
         for (const paragraph of shapeData.paragraphs) {
           for (const run of paragraph.runs) {
             const newRun = updatedShape.runs.find((r) => r.id === run.id);
-            // Only apply if 'customization' is 'CUSTOM' (as in your original code)
             if (newRun) {
               run.text = newRun.text;
             }
@@ -60,29 +59,45 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
         // C) Recalculate paragraph + run offsets on the shape we just updated
         recalcParagraphAndRunIndices(shapeData);
 
-      } else if (shapeData.type === "table" && updatedShape.cells) {
-        // updatedShape.cells is an object keyed by "row-col"
-        const shapeCells = updatedShape.cells;
+      } else if (shapeData.type === "table" && Array.isArray(updatedShape.tableCells)) {
+        // Example updatedShape.tableCells is:
+        // [
+        //   { rowIndex: 0, columnIndex: 0, runs: [ ... ] },
+        //   { rowIndex: 0, columnIndex: 1, runs: [ ... ] },
+        //   ...
+        // ]
 
-        for (const cellKey in shapeCells) {
-          const cell = shapeCells[cellKey];
-          if (!cell.runs) continue; // or some check
+        // We'll match them up with shapeData.tableCells by row/col
+        // We'll match them up with shapeData.tableCells by row/col
+        for (const updatedCell of updatedShape.tableCells) {
+          if (!Array.isArray(updatedCell.runs)) continue;
 
-          // Find corresponding cell in shapeData
-          const cellData = shapeData.cells[cellKey];
+          const { rowIndex, columnIndex } = updatedCell;
+          const cellData = shapeData.tableCells.find(
+            c => c.rowIndex === rowIndex && c.columnIndex === columnIndex
+          );
           if (!cellData) continue;
 
-          // cell.runs is your new text runs; so loop over original paragraphs & runs
-          const updatedRuns = cell.runs;
+          // Overwrite runs in cellData
           for (const paragraph of cellData.paragraphs) {
             for (const run of paragraph.runs) {
-              const newRun = updatedRuns.find(r => r.id === run.id);
+              const newRun = updatedCell.runs.find(r => r.id === run.id);
               if (newRun) {
                 run.text = newRun.text;
               }
             }
           }
 
+          // (Optional) If you want to preserve paragraph boundaries in each cell
+          // you could do something similar:
+          //
+          // preserveParagraphBoundaries(
+          //   originalCellData.paragraphs,   // from the *original* slide
+          //   cellData.paragraphs
+          // );
+          // but only if your AI returns multiple paragraphs per cell.
+
+          // Recalculate indices for that cell
           recalcParagraphAndRunIndices(cellData);
         }
       }
