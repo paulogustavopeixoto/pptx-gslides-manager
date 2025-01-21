@@ -11,13 +11,17 @@ const { google } = require("googleapis");
  *         type: "text" | "table" | "image" | "group" | etc.,
  *         text: string,          // Plaintext extracted from runs (if text shape)
  *         paragraphs: [...],    // Detailed paragraphs/runs for text shapes
- *         cells: {              // For tables: object keyed by "row-col"
- *           "0-0": { paragraphs: [...], text: "..." },
- *           "0-1": { paragraphs: [...], text: "..." },
+ *         tableCells: [         // For tables: an array of cell objects
+ *           {
+ *             rowIndex: number,
+ *             columnIndex: number,
+ *             paragraphs: [...],
+ *             text: string,
+ *           },
  *           ...
- *         },
+ *         ],
  *         imageUrl: string,     // If it's an image shape
- *         // etc.
+ *         ...
  *       },
  *       ...
  *     ]
@@ -109,14 +113,13 @@ function processElement(element, shapesArray, shapeOrder) {
   // 2) Table
   else if (element.table) {
     shapeObj.type = "table";
-    // Instead of "tableCells: []", we'll build "cells: { 'row-col': {...} }"
-    shapeObj.cells = {};
+    // We'll store each cell as an entry in shapeObj.tableCells (an array)
+    shapeObj.tableCells = [];
 
     if (Array.isArray(element.table.tableRows)) {
       element.table.tableRows.forEach((row, rowIndex) => {
         if (Array.isArray(row.tableCells)) {
           row.tableCells.forEach((cell, columnIndex) => {
-            // Extract paragraphs/runs for this cell
             let paragraphs = [];
             let plainText = "";
 
@@ -128,12 +131,12 @@ function processElement(element, shapesArray, shapeOrder) {
                 .join("");
             }
 
-            // key => "rowIndex-colIndex"
-            const cellKey = `${rowIndex}-${columnIndex}`;
-            shapeObj.cells[cellKey] = {
+            shapeObj.tableCells.push({
+              rowIndex,
+              columnIndex,
               paragraphs,
               text: plainText,
-            };
+            });
           });
         }
       });
@@ -146,14 +149,13 @@ function processElement(element, shapesArray, shapeOrder) {
   // 3) Groups
   else if (element.elementGroup) {
     shapeObj.type = "group";
-    // Flatten children or push as-is
+    // Flatten children or push the group shape itself if needed
     if (Array.isArray(element.elementGroup.children)) {
       element.elementGroup.children.forEach((child) => {
         processElement(child, shapesArray, shapeOrder);
       });
     }
-    // Optionally push the group shape itself if you need it
-    // shapesArray.push(shapeObj);
+    // shapesArray.push(shapeObj) if you want a group object
     return;
   }
 
@@ -171,8 +173,7 @@ function processElement(element, shapesArray, shapeOrder) {
 }
 
 /**
- * Extracts paragraphs and runs from Google Slides text elements.
- * This helps keep track of styles, offsets, etc.
+ * Extract paragraphs and runs from text elements in a shape.
  *
  * @param {Array} textElements - shape.text.textElements from the Slides API
  * @returns {Array} Array of paragraph objects

@@ -17,10 +17,10 @@ function filterOriginalSegmentMap(page) {
         type: 'text',
         paragraphs: shape.paragraphs,
         };
-    } else if (shape.type === 'table') {
+    } else if (shape.type === 'table' && Array.isArray(shape.tableCells)) {
         // Convert shape.tableCells array => shapeMap w/ "rowIndex-colIndex" keys
         const cellsObj = {};
-        shape.cells.forEach((cell) => {
+        shape.tableCells.forEach((cell) => {
         cellsObj[`${cell.rowIndex}-${cell.columnIndex}`] = {
             paragraphs: cell.paragraphs,
         };
