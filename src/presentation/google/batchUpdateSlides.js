@@ -1,61 +1,71 @@
 const { google } = require("googleapis");
 const { reapplyFormatting } = require("../../utils");
 
-
 /**
- * batchUpdateSlidesText
+ * batchUpdateSlidesText (Array-based)
  *
- * Applies each shape's updated text + formatting from an "updatedMap"
- * (such as your `originalSegmentMapUpdated`) to the live Google Slides.
- * 
- * - No shape existence verification (we assume shape IDs are valid).
- * - We do *not* re-derive paragraphs by splitting on `\n`; we rely on
- *   the shapeData's existing paragraphs->runs to reapply formatting.
+ * Takes an array of slides => each with .shapes => each shape has updated text
+ * or tableCells. Generates a set of Google Slides API requests to
+ * delete/insert text, then re-apply each run’s formatting.
  *
  * @param {object} auth - Auth client for Google APIs
  * @param {string} presentationId - The ID of the Slides presentation
- * @param {object} updatedMap - The updated segment map 
- *   (type="text"/"table") containing paragraphs->runs (with final text + style)
- * @returns {boolean} True if updates were made; false otherwise
+ * @param {Array} slidesArray - The updated data in array form, e.g.:
+ *   [
+ *     {
+ *       slideNumber: 5,
+ *       pageObjectId: "p5",
+ *       shapes: [
+ *         {
+ *           shapeId: "p5_i5",
+ *           type: "text",
+ *           paragraphs: [...],
+ *         },
+ *         {
+ *           shapeId: "p5_i15",
+ *           type: "table",
+ *           tableCells: [ ... ],
+ *         },
+ *         ...
+ *       ]
+ *     }
+ *   ]
+ * @returns {boolean} True if updates were performed, false otherwise
  */
-async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
-    console.log("Starting batch update without shape existence verification...");
-  
-    const slidesService = google.slides({ version: "v1", auth });
-    const requests = [];
-    let madeAnyUpdates = false;
-  
-    for (const shapeId in updatedMap) {
-      const shapeData = updatedMap[shapeId];
-      console.log("shapeData", shapeData);
-      if (!shapeData) continue; // skip if shapeData is null or undefined
-  
-      // 1) Handle TEXT shape
-      if (shapeData.type === "text" && Array.isArray(shapeData.paragraphs)) {
-        // (A) Build a single newText with exact paragraph boundaries
+async function batchUpdateSlidesText(auth, presentationId, slidesArray) {
+  console.log("Starting batch update (array-based)...");
+  const slidesService = google.slides({ version: "v1", auth });
+
+  const requests = [];
+  let madeAnyUpdates = false;
+
+  // 1) Loop over each slide
+  for (const slide of slidesArray) {
+    // 2) Loop over each shape in that slide
+    for (const shape of slide.shapes) {
+      const shapeId = shape.shapeId;
+      if (!shapeId) continue; // skip if no shapeId
+
+      // --- TEXT SHAPE ---
+      if (shape.type === "text" && Array.isArray(shape.paragraphs)) {
+        // A) Build the new text by flattening paragraphs/runs
         let newText = "";
-        // Also collect updatedRuns for the reapply step
-        let updatedRuns = [];
-  
-        for (const paragraph of shapeData.paragraphs) {
-          // Flatten runs in this paragraph
-          const paragraphText = paragraph.runs.map((r) => r.text).join("");
-          // Add them to newText
-          newText += paragraphText;
-  
-          // Add each run to updatedRuns
-          paragraph.runs.forEach((run) => updatedRuns.push(run));
+        const updatedRuns = [];
+        for (const paragraph of shape.paragraphs) {
+          for (const run of paragraph.runs) {
+            updatedRuns.push(run);
+            newText += run.text || "";
+          }
         }
-  
-        // (B) Delete existing text
+
+        // B) Create requests: (1) delete all text, (2) insert the new text
         requests.push({
           deleteText: {
             objectId: shapeId,
             textRange: { type: "ALL" },
           },
         });
-  
-        // (C) Insert the entire text at once
+
         if (newText.length > 0) {
           requests.push({
             insertText: {
@@ -64,47 +74,46 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
               text: newText,
             },
           });
-        };
-  
-        // (D) Reapply formatting to match original runs/paragraphs
-        // We pass updatedRuns to both updatedRuns/originalRuns
+        }
+
+        // C) Re-apply formatting for each run
         reapplyFormatting(
           requests,
           shapeId,
-          updatedRuns,     // Flattened runs
-          updatedRuns,     // If same style data
-          shapeData.paragraphs,
-          false,           // isTable?
-          null             // cellLocation
+          updatedRuns,       // updatedRuns
+          updatedRuns,       // originalRuns or same if you haven't changed style
+          shape.paragraphs,  // array of paragraphs
+          false,             // isTable = false
+          null               // cellLocation = null
         );
-  
+
         madeAnyUpdates = true;
       }
-  
-      // 2) Handle TABLE shape
-      else if (shapeData.type === "table" && shapeData.cells) {
-        // For each cell, flatten its runs & insert
-        for (const cellKey in shapeData.cells) {
-          const cellData = shapeData.cells[cellKey];
-          if (!cellData || !Array.isArray(cellData.paragraphs)) {
-            console.log(`[${shapeId}] - Cell [${cellKey}] lacks paragraphs; skipping...`);
-            continue;
-          }
-  
-          // Parse row & column from "rowIndex-colIndex"
-          const [rowIndexStr, colIndexStr] = cellKey.split("-");
-          const rowIndex = parseInt(rowIndexStr, 10);
-          const columnIndex = parseInt(colIndexStr, 10);
-  
-          // Flatten runs in paragraphs
+
+      // --- TABLE SHAPE ---
+      else if (shape.type === "table" && Array.isArray(shape.tableCells)) {
+        // shape.tableCells = [
+        //   { rowIndex, columnIndex, paragraphs: [...], runs: [...] },
+        //   ...
+        // ]
+
+        for (const cell of shape.tableCells) {
+          const { rowIndex, columnIndex, paragraphs } = cell;
+          if (!paragraphs) continue;
+
+          // Flatten runs
           const updatedRuns = [];
-          cellData.paragraphs.forEach((p) => p.runs.forEach((r) => updatedRuns.push(r)));
-          const newText = updatedRuns.map((r) => r.text || "").join("");
-  
-          console.log(`\n--- [${shapeId}] - TABLE CELL [${cellKey}] ---`);
-          console.log(`[${shapeId}] Flattened runs => newText:\n"${newText}"`);
-  
-          // (A) Delete existing text in that cell
+          let newText = "";
+          paragraphs.forEach((p) => {
+            p.runs.forEach((r) => {
+              updatedRuns.push(r);
+              newText += r.text || "";
+            });
+          });
+
+          console.log(`\n[${shapeId}] TABLE cell(${rowIndex},${columnIndex}) => newText:\n"${newText}"`);
+
+          // A) Delete existing text in that cell
           requests.push({
             deleteText: {
               objectId: shapeId,
@@ -112,8 +121,8 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
               textRange: { type: "ALL" },
             },
           });
-  
-          // (B) Insert the new text
+
+          // B) Insert the new text (if any)
           if (newText.length > 0) {
             requests.push({
               insertText: {
@@ -123,36 +132,39 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
                 text: newText,
               },
             });
-          };
-  
-          // (C) Reapply formatting
+          }
+
+          // C) Reapply formatting
           reapplyFormatting(
             requests,
             shapeId,
             updatedRuns,
-            updatedRuns,  // If you carried the style forward in updatedRuns
-            cellData.paragraphs,
-            true,         // isTable
+            updatedRuns,        // or separate originalRuns if you have them
+            paragraphs,         // the cell's paragraphs
+            true,               // isTable = true
             { rowIndex, columnIndex }
           );
+
+          madeAnyUpdates = true;
         }
-  
-        madeAnyUpdates = true;
       }
-    }
-  
-    if (!madeAnyUpdates || requests.length === 0) {
-      console.log("No updates to perform. Exiting...");
-      return false;
-    }
-  
-    // 3) Execute the batchUpdate requests
-    await slidesService.presentations.batchUpdate({
-      presentationId,
-      requestBody: { requests },
-    });
-    console.log("Batch update successful (no verification).");
-    return true;
+    } // end shape loop
+  } // end slide loop
+
+  // 3) If there are no updates, skip the API call
+  if (!madeAnyUpdates || requests.length === 0) {
+    console.log("No updates to perform. Exiting...");
+    return false;
+  }
+
+  // 4) Execute the batchUpdate requests
+  await slidesService.presentations.batchUpdate({
+    presentationId,
+    requestBody: { requests },
+  });
+
+  console.log("Batch update successful (array-based).");
+  return true;
 }
 
 module.exports = batchUpdateSlidesText;
