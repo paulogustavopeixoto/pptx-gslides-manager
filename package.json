@@ -1,6 +1,6 @@
 {
   "name": "pptx-gslides-manager",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Node.js library for uploading PPTX files to Google Slides, extracting slide shapes and tables, and managing slide decks.",
   "main": "src/index.js",
   "scripts": {
