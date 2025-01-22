@@ -10,7 +10,7 @@ async function uploadPresentation(auth, drive_id, filepath, fileName) {
 
       // 1) Download the file to /tmp
       if (filepath.startsWith('http://') || filepath.startsWith('https://')) {
-        console.log(`Downloading file ${filepath} to ${downloadPath}...`);
+        //console.log(`Downloading file ${filepath} to ${downloadPath}...`);
         await download(filepath, downloadPath);
       } else {
         throw new Error('Local file paths are not supported in Cloud Functions.');

@@ -18,7 +18,6 @@ const { reapplyFormattingByID } = require("../../utils");
  * @returns {boolean} True if updates were made; false otherwise
  */
 async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
-  console.log("Starting batch update without shape existence verification...");
 
   const slidesService = google.slides({ version: "v1", auth });
   const requests = [];
