@@ -45,13 +45,14 @@ async function getSlides(auth, presentationId, pageObjectId = null) {
   }
 
   const slidesData = presentation.data.slides || [];
-  console.log(`Found ${slidesData.length} slides in the presentation: ${JSON.stringify(slidesData, null, 4)}`);
+  //console.log(`Found ${slidesData.length} slides in the presentation: ${JSON.stringify(slidesData, null, 4)}`);
   const pages = []; // The array of slides we'll return
 
   // -------------------------------------------------
   // Process each slide in the presentation
   // -------------------------------------------------
   slidesData.forEach((slide, index) => {
+    console.log(`Found slide in the presentation: ${JSON.stringify(slide, null, 4)}`);
     const slideNumber = index + 1;
     const pageObject = {
       slideNumber,
