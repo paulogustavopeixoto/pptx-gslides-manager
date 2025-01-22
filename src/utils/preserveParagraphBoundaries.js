@@ -60,7 +60,7 @@ function preserveParagraphBoundaries(origParas, updatedParas) {
     // (B) Condition: If the entire run is only newlines, keep a single \n?
     if (lastRun.text.match(/^\n+$/)) {
       // Optionally keep exactly one newline, or remove them all, up to you
-      lastRun.text = "\n"; // keep one
+      lastRun.text = ""; // keep one
     }
     else {
       // If the run has actual text plus a newline, maybe remove the trailing ones
