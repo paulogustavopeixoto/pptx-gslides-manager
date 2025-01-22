@@ -34,7 +34,7 @@ const { google } = require("googleapis");
  * @param {string|null} pageObjectId - If set, only return the slide with this ID. Otherwise return all slides.
  * @returns {Promise<Array>} Array of slide objects (possibly length 1 if pageObjectId was given).
  */
-async function getPresentation(auth, presentationId, pageObjectId = null) {
+async function getPresentation(auth, presentationId) {
   const slidesService = google.slides({ version: "v1", auth });
   let presentation;
   try {

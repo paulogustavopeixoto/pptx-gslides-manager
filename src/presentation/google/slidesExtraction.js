@@ -34,9 +34,13 @@ const { google } = require("googleapis");
  * @param {string|null} pageObjectId - If set, only return the slide with this ID. Otherwise return all slides.
  * @returns {Promise<object>} Object of slide.
  */
-async function getSlides(auth, presentation, pageObjectId) {
+async function getSlides(presentation, pageObjectId) {
 
   const originalSegmentMap = {};
+
+  const targetSlide = presentation.data.slides.find(
+    (slide) => slide.objectId === pageObjectId
+  );
 
   if (targetSlide && targetSlide.pageElements) {
     targetSlide.pageElements.forEach((pe) => {
