@@ -44,7 +44,7 @@ async function getSlides(presentation, pageObjectId) {
 
   if (targetSlide && targetSlide.pageElements) {
     targetSlide.pageElements.forEach((pe) => {
-      console.log(`shape ${pe.objectId} object:`, JSON.stringify(pe, null, 4));
+      //console.log(`shape ${pe.objectId} object:`, JSON.stringify(pe, null, 4));
       const shapeId = pe.objectId;
 
       if (pe.shape && pe.shape.text && pe.shape.text.textElements) {
