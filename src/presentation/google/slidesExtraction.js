@@ -45,6 +45,7 @@ async function getSlides(auth, presentationId, pageObjectId = null) {
   }
 
   const slidesData = presentation.data.slides || [];
+  console.log(`Found ${slidesData.length} slides in the presentation: ${JSON.stringify(slidesData, null, 2)}`);
   const pages = []; // The array of slides we'll return
 
   // -------------------------------------------------
@@ -191,8 +192,7 @@ function extractParagraphsAndRuns(textElements) {
       if (currentParagraph) {
         // finalize endIndex of the old paragraph
         if (currentParagraph.runs.length) {
-          currentParagraph.endIndex =
-            currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
+          currentParagraph.endIndex = currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
         }
         paragraphs.push(currentParagraph);
       }
@@ -229,10 +229,6 @@ function extractParagraphsAndRuns(textElements) {
 
   // finalize the last paragraph if open
   if (currentParagraph) {
-    if (currentParagraph.runs.length) {
-      currentParagraph.endIndex =
-        currentParagraph.runs[currentParagraph.runs.length - 1].endIndex;
-    }
     paragraphs.push(currentParagraph);
   }
 
