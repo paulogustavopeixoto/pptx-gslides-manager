@@ -32,7 +32,7 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
       for (const paragraph of origShapeData.paragraphs) {
         for (const run of paragraph.runs) {
           const newRun = updatedShape.runs.find((r) => r.id === run.id);
-          if (newRun && updatedShape.customization === 'CUSTOM') {
+          if (newRun) {
             run.text = newRun.text;
           }
         }
