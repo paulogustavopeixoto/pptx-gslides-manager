@@ -6,6 +6,7 @@ const generateSlideImage = require('./generateSlideImage');
 const deletePresentation = require('./deletePresentation');
 const getPresentationText = require('./getPresentationText');
 const batchUpdateSlidesText = require('./batchUpdateSlides');
+const getPresentation = require('./getPresentation');
 
 
 module.exports = {
@@ -16,5 +17,6 @@ module.exports = {
     getSlideImage: generateSlideImage,
     delete: deletePresentation,
     getPresentationText,
-    batchUpdate: batchUpdateSlidesText
+    batchUpdate: batchUpdateSlidesText,
+    getPresentation
 }

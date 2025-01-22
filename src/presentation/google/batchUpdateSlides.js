@@ -1,188 +1,147 @@
 const { google } = require("googleapis");
-const { reapplyFormatting } = require("../../utils");
+const { reapplyFormattingByID } = require("../../utils");
 
 /**
- * batchUpdateSlidesText (Array-based)
+ * batchUpdateSlidesText
  *
- * Takes an array of slides => each with .shapes => each shape has updated text
- * or tableCells. Generates a set of Google Slides API requests to
- * delete/insert text, then re-apply each run’s formatting.
+ * Applies each shape's updated text + formatting from an "updatedMap"
+ * (such as your `originalSegmentMapUpdated`) to the live Google Slides.
+ * 
+ * - We do *not* re-derive paragraphs by splitting on `\n`; we rely on
+ *   the shapeData's existing paragraphs->runs to reapply formatting.
+ * - Now also handles bullet creation or deletion properly.
  *
  * @param {object} auth - Auth client for Google APIs
  * @param {string} presentationId - The ID of the Slides presentation
- * @param {Array} slidesArray - The updated data in array form, e.g.:
- *   [
- *     {
- *       slideNumber: 5,
- *       pageObjectId: "p5",
- *       shapes: [
- *         {
- *           shapeId: "p5_i5",
- *           type: "text",
- *           paragraphs: [...],
- *         },
- *         {
- *           shapeId: "p5_i15",
- *           type: "table",
- *           tableCells: [ ... ],
- *         },
- *         ...
- *       ]
- *     }
- *   ]
- * @returns {boolean} True if updates were performed, false otherwise
+ * @param {object} updatedMap - The updated segment map 
+ *   (type="text"/"table") containing paragraphs->runs (with final text + style)
+ * @returns {boolean} True if updates were made; false otherwise
  */
-async function batchUpdateSlidesText(auth, presentationId, slidesArray) {
-  console.log("Starting batch update (array-based)...");
-  const slidesService = google.slides({ version: "v1", auth });
+async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
+  console.log("Starting batch update without shape existence verification...");
 
+  const slidesService = google.slides({ version: "v1", auth });
   const requests = [];
   let madeAnyUpdates = false;
 
-  // 1) Loop over each slide
-  for (const slide of slidesArray) {
-    // 2) Loop over each shape in that slide
-    for (const shape of slide.shapes) {
-      const shapeId = shape.shapeId;
-      if (!shapeId) continue; // skip if no shapeId
+  for (const shapeId in updatedMap) {
+    const shapeData = updatedMap[shapeId];
+    if (!shapeData) continue; // skip if shapeData is null or undefined
 
-      // --- TEXT SHAPE ---
-      if (shape.type === "text" && Array.isArray(shape.paragraphs)) {
-        // A) Build the new text by flattening paragraphs/runs
-        let newText = "";
+    // 1) Handle TEXT shape
+    if (shapeData.type === "text" && Array.isArray(shapeData.paragraphs)) {
+      // (A) Build a single newText with exact paragraph boundaries
+      let newText = "";
+      let updatedRuns = [];
+
+      for (const paragraph of shapeData.paragraphs) {
+        const paragraphText = paragraph.runs.map((r) => r.text).join("");
+        newText += paragraphText;
+        paragraph.runs.forEach((run) => updatedRuns.push(run));
+      }
+
+      // (B) Delete existing text
+      requests.push({
+        deleteText: {
+          objectId: shapeId,
+          textRange: { type: "ALL" },
+        },
+      });
+
+      // (C) Insert the entire text (if not empty)
+      if (newText.length > 0) {
+        requests.push({
+          insertText: {
+            objectId: shapeId,
+            insertionIndex: 0,
+            text: newText,
+          },
+        });
+      }
+
+      // (D) Reapply formatting (including bullets)
+      reapplyFormattingByID(
+        requests,
+        shapeId,
+        updatedRuns,
+        updatedRuns, // same array if you didn’t separate original vs updated
+        shapeData.paragraphs,
+        /* isTable=*/ false,
+        /* cellLocation=*/ null
+      );
+
+      madeAnyUpdates = true;
+    }
+
+    // 2) Handle TABLE shape
+    else if (shapeData.type === "table" && shapeData.cells) {
+      for (const cellKey in shapeData.cells) {
+        const cellData = shapeData.cells[cellKey];
+        if (!cellData || !Array.isArray(cellData.paragraphs)) {
+          console.log(`[${shapeId}] - Cell [${cellKey}] lacks paragraphs; skipping...`);
+          continue;
+        }
+
+        // Parse row & column from "rowIndex-colIndex"
+        const [rowIndexStr, colIndexStr] = cellKey.split("-");
+        const rowIndex = parseInt(rowIndexStr, 10);
+        const columnIndex = parseInt(colIndexStr, 10);
+
+        // Flatten runs in paragraphs
         const updatedRuns = [];
-        for (const paragraph of shape.paragraphs) {
-          for (const run of paragraph.runs) {
-            updatedRuns.push(run);
-            newText += run.text || "";
-          }
-        }
+        cellData.paragraphs.forEach((p) => {
+          p.runs.forEach((r) => updatedRuns.push(r));
+        });
+        const newText = updatedRuns.map((r) => r.text || "").join("");
 
-        // B) Check if the shape is currently empty or not
-        //    If the shape has paragraphs/runs at all, let's see if there's any text
-        //    "existingTextLength" is how many chars are in the updated shape’s paragraphs
-        //    If you want to be extremely accurate about what's actually in Google,
-        //    you'd look up the original text from the original shape data. But typically
-        //    the new structure matches the original text length if you haven't changed it.
-        const existingTextLength = newText.length;
+        // (A) Delete existing text in that cell
+        requests.push({
+          deleteText: {
+            objectId: shapeId,
+            cellLocation: { rowIndex, columnIndex },
+            textRange: { type: "ALL" },
+          },
+        });
 
-        // If there's *some* text in the shape, we do a delete
-        // But if we see *zero* text, skip the delete to avoid "startIndex 0 must be < endIndex 0"
-        if (existingTextLength > 0) {
-          requests.push({
-            deleteText: {
-              objectId: shapeId,
-              textRange: { type: "ALL" },
-            },
-          });
-        }
-
-        if (existingTextLength > 0) {
+        // (B) Insert new text
+        if (newText.length > 0) {
           requests.push({
             insertText: {
               objectId: shapeId,
+              cellLocation: { rowIndex, columnIndex },
               insertionIndex: 0,
               text: newText,
             },
           });
         }
 
-        // C) Re-apply formatting for each run
-        reapplyFormatting(
+        // (C) Reapply formatting
+        reapplyFormattingByID(
           requests,
           shapeId,
-          updatedRuns,       // updatedRuns
-          updatedRuns,       // originalRuns or same if you haven't changed style
-          shape.paragraphs,  // array of paragraphs
-          false,             // isTable = false
-          null               // cellLocation = null
+          updatedRuns,
+          updatedRuns,
+          cellData.paragraphs,
+          /* isTable=*/ true,
+          { rowIndex, columnIndex }
         );
-
-        madeAnyUpdates = true;
       }
 
-      // --- TABLE SHAPE ---
-      else if (shape.type === "table" && Array.isArray(shape.tableCells)) {
-        // shape.tableCells = [
-        //   { rowIndex, columnIndex, paragraphs: [...], runs: [...] },
-        //   ...
-        // ]
+      madeAnyUpdates = true;
+    }
+  }
 
-        for (const cell of shape.tableCells) {
-          const { rowIndex, columnIndex, paragraphs } = cell;
-          if (!paragraphs) continue;
-
-          // Flatten runs
-          const updatedRuns = [];
-          let newText = "";
-          paragraphs.forEach((p) => {
-            p.runs.forEach((r) => {
-              updatedRuns.push(r);
-              newText += r.text || "";
-            });
-          });
-
-          console.log(`\n[${shapeId}] TABLE cell(${rowIndex},${columnIndex}) => newText:\n"${newText}"`);
-
-          // If the cell had any text, do a deleteText
-          // because "ALL" fails if the cell truly has zero length
-          // So let's see if there's existing text length in `newText`
-          const existingTextLength = newText.length;
-
-          // (A) Delete existing text in that cell only if not empt
-          // A) Delete existing text in that cell
-          if (existingTextLength > 0) {
-            requests.push({
-              deleteText: {
-                objectId: shapeId,
-                cellLocation: { rowIndex, columnIndex },
-                textRange: { type: "ALL" },
-              },
-            });
-          }
-
-          // B) Insert the new text (if any)
-          if (newText.length > 0) {
-            requests.push({
-              insertText: {
-                objectId: shapeId,
-                cellLocation: { rowIndex, columnIndex },
-                insertionIndex: 0,
-                text: newText,
-              },
-            });
-          }
-
-          // C) Reapply formatting
-          reapplyFormatting(
-            requests,
-            shapeId,
-            updatedRuns,
-            updatedRuns,        // or separate originalRuns if you have them
-            paragraphs,         // the cell's paragraphs
-            true,               // isTable = true
-            { rowIndex, columnIndex }
-          );
-
-          madeAnyUpdates = true;
-        }
-      }
-    } // end shape loop
-  } // end slide loop
-
-  // 3) If there are no updates, skip the API call
   if (!madeAnyUpdates || requests.length === 0) {
     console.log("No updates to perform. Exiting...");
     return false;
   }
 
-  // 4) Execute the batchUpdate requests
+  // 3) Execute the batchUpdate requests
   await slidesService.presentations.batchUpdate({
     presentationId,
     requestBody: { requests },
   });
-
-  console.log("Batch update successful (array-based).");
+  console.log("Batch update successful (no verification).");
   return true;
 }
 

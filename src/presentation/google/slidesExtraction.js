@@ -30,148 +30,107 @@ const { google } = require("googleapis");
  * If `pageObjectId` is provided, only return that single slide (or empty if not found).
  *
  * @param {object} auth - Authenticated google.auth.JWT or OAuth2 client.
- * @param {string} presentationId - The ID of the Google Slides presentation.
+ * @param {object} presentation - The object the Google Slides presentation resulted from the getPresentation function.
  * @param {string|null} pageObjectId - If set, only return the slide with this ID. Otherwise return all slides.
- * @returns {Promise<Array>} Array of slide objects (possibly length 1 if pageObjectId was given).
+ * @returns {Promise<object>} Object of slide.
  */
-async function getSlides(auth, presentationId, pageObjectId = null) {
-  const slidesService = google.slides({ version: "v1", auth });
-  let presentation;
-  try {
-    presentation = await slidesService.presentations.get({ presentationId });
-  } catch (error) {
-    console.error("Error retrieving presentation:", error);
-    throw error;
-  }
+async function getSlides(auth, presentation, pageObjectId) {
 
-  const slidesData = presentation.data.slides || [];
-  //console.log(`Found ${slidesData.length} slides in the presentation: ${JSON.stringify(slidesData, null, 4)}`);
-  const pages = []; // The array of slides we'll return
+  const originalSegmentMap = {};
 
-  // -------------------------------------------------
-  // Process each slide in the presentation
-  // -------------------------------------------------
-  slidesData.forEach((slide, index) => {
-    console.log(`Found slide in the presentation: ${JSON.stringify(slide, null, 4)}`);
-    const slideNumber = index + 1;
-    const pageObject = {
-      slideNumber,
-      pageObjectId: slide.objectId,
-      shapes: [],
-    };
+  if (targetSlide && targetSlide.pageElements) {
+    targetSlide.pageElements.forEach((pe) => {
+      console.log(`shape ${pe.objectId} object:`, JSON.stringify(pe, null, 4));
+      const shapeId = pe.objectId;
 
-    const shapeOrder = { order: 1 }; // increment as we process shapes
-
-    if (slide.pageElements) {
-      slide.pageElements.forEach((element) => {
-        processElement(element, pageObject.shapes, shapeOrder);
-      });
-    }
-
-    pages.push(pageObject);
-  });
-
-  // -------------------------------------------------
-  // If pageObjectId is provided, filter down
-  // -------------------------------------------------
-  if (pageObjectId) {
-    return pages.filter((p) => p.pageObjectId === pageObjectId);
-  } else {
-    return pages;
-  }
-}
-
-// ------------------------------------------------------------------------
-// processElement: parse each element into a "shape" object
-// ------------------------------------------------------------------------
-function processElement(element, shapesArray, shapeOrder) {
-  if (!element.objectId) return;
-
-  const shapeObj = {
-    shapeId: element.objectId,
-    order: shapeOrder.order++,
-  };
-
-  // 1) Text Shape
-  if (element.shape && element.shape.text) {
-    shapeObj.type = "text";
-
-    // Extract paragraphs/runs
-    const paragraphs = extractParagraphsAndRuns(element.shape.text.textElements);
-    shapeObj.paragraphs = paragraphs;
-
-    // Combine all runs into plaintext
-    const plainText = paragraphs
-      .flatMap((para) => para.runs)
-      .map((r) => r.text)
-      .join("");
-    shapeObj.text = plainText;
-    shapeObj.characterCount = plainText.length;
-
-    shapesArray.push(shapeObj);
-    return;
-  }
-
-  // 2) Table
-  else if (element.table) {
-    shapeObj.type = "table";
-    // We'll store each cell as an entry in shapeObj.tableCells (an array)
-    shapeObj.tableCells = [];
-
-    if (Array.isArray(element.table.tableRows)) {
-      element.table.tableRows.forEach((row, rowIndex) => {
-        if (Array.isArray(row.tableCells)) {
-          row.tableCells.forEach((cell, columnIndex) => {
-            let paragraphs = [];
-            let plainText = "";
-
-            if (cell.text && cell.text.textElements) {
-              paragraphs = extractParagraphsAndRuns(cell.text.textElements);
-              plainText = paragraphs
-                .flatMap((p) => p.runs)
-                .map((r) => r.text)
-                .join("");
-            }
-
-            shapeObj.tableCells.push({
-              rowIndex,
-              columnIndex,
-              paragraphs,
-              text: plainText,
+      if (pe.shape && pe.shape.text && pe.shape.text.textElements) {
+        const paragraphs = extractParagraphsAndRuns(pe.shape.text.textElements);    
+        originalSegmentMap[shapeId] = {
+          type: "text",
+          paragraphs,
+        };
+      } else if (pe.table) {
+        originalSegmentMap[shapeId] = { type: "table", cells: {} };
+        if (pe.table.tableRows) {
+          pe.table.tableRows.forEach((row, rIndex) => {
+            row.tableCells.forEach((cell, cIndex) => {
+              if (cell.text && cell.text.textElements) {
+                const paragraphs = extractParagraphsAndRuns(cell.text.textElements);
+                originalSegmentMap[shapeId].cells[`${rIndex}-${cIndex}`] = {
+                  paragraphs,
+                };
+              }
             });
           });
         }
-      });
-    }
-
-    shapesArray.push(shapeObj);
-    return;
+      } else if (pe.elementGroup) {
+        // Instead of creating a "group" in the map, just recurse into the children
+        if (
+          Array.isArray(pe.elementGroup.children) && 
+          pe.elementGroup.children.length > 0
+        ) {
+          pe.elementGroup.children.forEach((child) => {
+            // Pass the top-level originalSegmentMap so children 
+            // get stored at the same level
+            handleChildElement(child, originalSegmentMap);
+          });
+        }
+      } else if (pe.image) {
+        originalSegmentMap[shapeId] = {
+          type: "image",
+          imageUrl: pe.image.contentUrl || null,
+        };
+      }
+    });
   }
 
-  // 3) Groups
+  return originalSegmentMap;
+}
+
+/**
+ * handleChildElement:
+ * Recursively process child elements inside a group (or nested groups).
+ * 
+ * This version FLATTENS groups so that we do NOT store a "group" entry.
+ * Instead, we only store the shapes/tables inside those groups.
+ */
+function handleChildElement(element, originalSegmentMap) {
+  const childId = element.objectId || generateTempId(); // fallback if no objectId
+
+  // 1) Is it a text shape?
+  if (element.shape && element.shape.text && element.shape.text.textElements) {
+    const paragraphs = extractParagraphsAndRuns(element.shape.text.textElements);
+    originalSegmentMap[childId] = {
+      type: "text",
+      paragraphs,
+    };
+  } 
+  // 2) Or a table?
+  else if (element.table) {
+    originalSegmentMap[childId] = { type: "table", cells: {} };
+    if (element.table.tableRows) {
+      element.table.tableRows.forEach((row, rIndex) => {
+        row.tableCells.forEach((cell, cIndex) => {
+          if (cell.text && cell.text.textElements) {
+            const paragraphs = extractParagraphsAndRuns(cell.text.textElements);
+            originalSegmentMap[childId].cells[`${rIndex}-${cIndex}`] = { paragraphs };
+          }
+        });
+      });
+    }
+  }
+  // 3) If it's a group, we do NOT create a "group" entry.
+  //    Instead, we just recurse into the children so they appear at the same level.
   else if (element.elementGroup) {
-    shapeObj.type = "group";
-    // Flatten children or push the group shape itself if needed
     if (Array.isArray(element.elementGroup.children)) {
-      element.elementGroup.children.forEach((child) => {
-        processElement(child, shapesArray, shapeOrder);
+      element.elementGroup.children.forEach((nestedChild) => {
+        handleChildElement(nestedChild, originalSegmentMap);
       });
     }
-    // shapesArray.push(shapeObj) if you want a group object
-    return;
   }
 
-  // 4) Image
-  else if (element.image) {
-    shapeObj.type = "image";
-    shapeObj.imageUrl = element.image.contentUrl || null;
-    shapesArray.push(shapeObj);
-    return;
-  }
-
-  // 5) Fallback / Unknown
-  shapeObj.type = "unknown";
-  shapesArray.push(shapeObj);
+  // If it's some other kind of element (e.g. a diagram or WordArt),
+  // you might need to handle that separately.
 }
 
 /**
@@ -181,6 +140,7 @@ function processElement(element, shapesArray, shapeOrder) {
  * @returns {Array} Array of paragraph objects
  */
 function extractParagraphsAndRuns(textElements) {
+
   const paragraphs = [];
   let currentParagraph = null;
   let paragraphCounter = 0;
