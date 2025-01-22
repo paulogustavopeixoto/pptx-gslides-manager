@@ -41,12 +41,14 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
       }
 
       // (B) Delete existing text
-      requests.push({
-        deleteText: {
-          objectId: shapeId,
-          textRange: { type: "ALL" },
-        },
-      });
+      if (newText.length > 0) {
+        requests.push({
+          deleteText: {
+            objectId: shapeId,
+            textRange: { type: "ALL" },
+          },
+        });
+      }
 
       // (C) Insert the entire text (if not empty)
       if (newText.length > 0) {
@@ -95,13 +97,15 @@ async function batchUpdateSlidesText(auth, presentationId, updatedMap) {
         const newText = updatedRuns.map((r) => r.text || "").join("");
 
         // (A) Delete existing text in that cell
-        requests.push({
-          deleteText: {
-            objectId: shapeId,
-            cellLocation: { rowIndex, columnIndex },
-            textRange: { type: "ALL" },
-          },
-        });
+        if (newText.length > 0) {
+          requests.push({
+            deleteText: {
+              objectId: shapeId,
+              cellLocation: { rowIndex, columnIndex },
+              textRange: { type: "ALL" },
+            },
+          });
+        }
 
         // (B) Insert new text
         if (newText.length > 0) {
