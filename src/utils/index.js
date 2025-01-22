@@ -5,7 +5,7 @@ const mergeCustomization = require('./mergeCustomization');
 const applyUpdatedRunsToSegmentMap = require('./applyUpdatedRunsToSegmentMap');
 const preserveParagraphBoundaries = require('./preserveParagraphBoundaries');
 const recalcParagraphAndRunIndices = require('./recalcParagraphAndRunIndices');
-const reapplyFormatting = require('./reapplyFormatting');
+const reapplyFormattingByID = require('./reapplyFormatting');
 
 
 module.exports = {
@@ -16,5 +16,5 @@ module.exports = {
     applyUpdatedRunsToSegmentMap,
     preserveParagraphBoundaries,
     recalcParagraphAndRunIndices,
-    reapplyFormatting
+    reapplyFormattingByID
 }
