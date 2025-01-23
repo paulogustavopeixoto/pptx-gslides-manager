@@ -51,7 +51,7 @@ async function getPresentationText(auth, presentationId, pageObjectId = null) {
       if (shapeData.type === "text" && Array.isArray(shapeData.paragraphs)) {
         // Combine all runs in all paragraphs
         const textFromRuns = shapeData.paragraphs
-          .map((p) => p.runs.map((r) => r.text).join(""))
+          .map((p) => p.runs.map((r) => r.text).join(" "))
           .join("\n");
         slideText += textFromRuns + "\n";
       }
@@ -62,7 +62,7 @@ async function getPresentationText(auth, presentationId, pageObjectId = null) {
           const cellObj = shapeData.cells[cellKey];
           if (cellObj.paragraphs) {
             const cellText = cellObj.paragraphs
-              .map((p) => p.runs.map((r) => r.text).join(""))
+              .map((p) => p.runs.map((r) => r.text).join(" "))
               .join(" ");
             slideText += cellText + " ";
           }
@@ -78,34 +78,6 @@ async function getPresentationText(auth, presentationId, pageObjectId = null) {
 
   // 5) Join all slide texts with double newlines (or single, whichever you prefer)
   return textChunks.join("\n\n");
-
-  // 2) Build one big string from the slides array
-  const bigFinalText = slidesWithText
-    // Ensure we process slides in ascending order by slideNumber
-    .sort((a, b) => a.slideNumber - b.slideNumber)
-    .map((slide) => {
-      // For each slide, gather text from shapes
-      return slide.shapes
-        .map((shape) => {
-          if (shape.type === "text") {
-            // Simple text shape
-            return shape.text || "";
-          } else if (shape.type === "table") {
-            // For a table, join all cell text from all rows/columns
-            return shape.tableCells
-              .map((cell) => cell.text || "")
-              .join(" ");
-          }
-          // If it's an image or something else, we skip or return empty
-          return "";
-        })
-        // Join shapes with a space or newline
-        .join(" ");
-    })
-    // Finally, join slides with e.g. two newlines (or a single newline)
-    .join("\n\n");
-
-  return bigFinalText;
 }
 
 module.exports = getPresentationText;
