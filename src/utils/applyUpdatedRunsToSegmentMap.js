@@ -59,7 +59,7 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
         const cellData = origShapeData.cells[cellKey];
         if (!cellData) continue;
     
-        // cell.runs is your new text runs; so loop over original paragraphs & runs
+        // 1) Copy run text
         const updatedRuns = cell.runs;
         for (const paragraph of cellData.paragraphs) {
           for (const run of paragraph.runs) {
@@ -69,7 +69,15 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
             }
           }
         }
-    
+
+        // 2) Now call preserveParagraphBoundaries
+        //    just like you do with text shapes
+        preserveParagraphBoundaries(
+          originalSegmentMap[shapeId].cells[cellKey].paragraphs,
+          cellData.paragraphs
+        );
+        
+        // 3) Recalculate indices
         recalcParagraphAndRunIndices(cellData);
       }
     }
