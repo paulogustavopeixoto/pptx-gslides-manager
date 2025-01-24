@@ -52,19 +52,16 @@ function preserveParagraphBoundaries(origParas, updatedParas) {
     }
   }
 
-  // (B) Finally, remove the trailing newline from the *very last* run
-  //     in the shape if it exists
+  // (B) Remove exactly one trailing newline from the very last run of the last paragraph
+  //     If the last run has n trailing newlines, keep n - 1.
   const lastParagraph = updatedParas[updatedParas.length - 1];
   if (lastParagraph && lastParagraph.runs?.length > 0) {
     const lastRun = lastParagraph.runs[lastParagraph.runs.length - 1];
-    // (B) Condition: If the entire run is only newlines, keep a single \n?
-    if (lastRun.text.match(/^\n+$/)) {
-      // Optionally keep exactly one newline, or remove them all, up to you
-      lastRun.text = "\n"; // keep one
-    }
-    else {
-      // If the run has actual text plus a newline, maybe remove the trailing ones
-      lastRun.text = lastRun.text.replace(/\n+$/, "");
+
+    // See if the run ends with at least one '\n'
+    // We only remove one of them, so if it had n newlines, it now has n-1.
+    if (/\n$/.test(lastRun.text)) {
+      lastRun.text = lastRun.text.slice(0, -1);
     }
   }
 }
