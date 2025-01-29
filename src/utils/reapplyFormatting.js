@@ -19,8 +19,8 @@ function reapplyFormattingByID(
   isTable = false,
   cellLocation = null
 ) {
-  console.log(`Reapplying formatting for shape ${shapeId} using IDs...`);
-  console.log(`UpdatedRuns for shape [${shapeId}]:`, JSON.stringify(updatedRuns, null, 2));
+  //console.log(`Reapplying formatting for shape ${shapeId} using IDs...`);
+  //console.log(`UpdatedRuns for shape [${shapeId}]:`, JSON.stringify(updatedRuns, null, 2));
 
   //
   // (A) Reapply run-level styles
@@ -132,7 +132,7 @@ function reapplyFormattingByID(
       // store the paragraph’s “listId” and replicate it. The API does not
       // have a direct “exactly i.” bullet preset.
 
-      console.log(`-> Creating bullet for paragraph ${paragraph.id}, bullet=`, paragraph.bullet);
+      //console.log(`-> Creating bullet for paragraph ${paragraph.id}, bullet=`, paragraph.bullet);
       requests.push({
         createParagraphBullets: {
           objectId: shapeId,
