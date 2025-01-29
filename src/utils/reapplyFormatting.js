@@ -113,13 +113,16 @@ function reapplyFormattingByID(
     }
 
     // Check if paragraph has any visible text
-    const hasVisibleText = paragraph.runs.some((r) => (r.text || "").trim().length > 0);
+    const hasVisibleText = paragraph.runs.some(r => (r.text || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().length > 0);
 
     // 1) Bullets: create or delete
     // If bullet != null & we have text, create bullets. Else, delete them
     if (paragraph.bullet && paragraph.bullet.bulletStyle && hasVisibleText) {
+
+      // Get the bullet color from the `bulletStyle`
+      const bulletColor = paragraph.bullet.bulletStyle.foregroundColor;
+
       // Optionally map your "glyph" to a preset:
-      // For example:
       const bulletGlyph = paragraph.bullet.glyph;  // e.g. "i.", "ii.", "iii."
       let bulletPreset = "BULLET_DISC_CIRCLE_SQUARE"; // default fallback
 
@@ -140,6 +143,15 @@ function reapplyFormattingByID(
             type: "FIXED_RANGE",
             startIndex: pStartIndex,
             endIndex: pEndIndex,
+          },
+          bulletStyle: {
+            foregroundColor: bulletColor,
+            bold: paragraph.bullet.bulletStyle.bold,
+            italic: paragraph.bullet.bulletStyle.italic,
+            fontFamily: paragraph.bullet.bulletStyle.fontFamily,
+            fontSize: paragraph.bullet.bulletStyle.fontSize,
+            strikethrough: paragraph.bullet.bulletStyle.strikethrough,
+            weightedFontFamily: paragraph.bullet.bulletStyle.weightedFontFamily,
           },
           bulletPreset,
           ...(isTable && cellLocation ? { cellLocation } : {}),
