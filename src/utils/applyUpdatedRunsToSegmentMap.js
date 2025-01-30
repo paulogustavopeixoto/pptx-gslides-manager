@@ -1,7 +1,6 @@
 const preserveParagraphBoundaries = require('./preserveParagraphBoundaries');
 const recalcParagraphAndRunIndices = require('./recalcParagraphAndRunIndices');
 
-
 /**
  * applyUpdatedRunsToSegmentMap
  *
@@ -9,9 +8,9 @@ const recalcParagraphAndRunIndices = require('./recalcParagraphAndRunIndices');
  * matching by run IDs. Then **recalculates** paragraph/runs startIndex/endIndex
  * so they match the new text length.
  *
- * @param {Object} originalSegmentMap - The map built from extractParagraphsAndRuns
- * @param {Array} updatedShapes - The array from secondPrompt’s “content”
- * @returns {Object} A modified copy of originalSegmentMap with updated text + corrected indices
+ * @param  originalSegmentMap - The map built from extractParagraphsAndRuns
+ * @param  updatedShapes - The array from secondPrompt’s “content”
+ * @returns  A modified copy of originalSegmentMap with updated text + corrected indices
  */
 function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
   // 1) Clone original (or mutate in place, if you prefer)
@@ -27,48 +26,66 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
     }
 
     // If it's a TEXT shape, copy updated run text
-    if (origShapeData.type === "text" && Array.isArray(updatedShape.runs)) {
-      // A) Update run text by matching run IDs
-      for (const paragraph of origShapeData.paragraphs) {
-        for (const run of paragraph.runs) {
-          const newRun = updatedShape.runs.find((r) => r.id === run.id);
-          if (newRun) {
-            run.text = newRun.text;
-          }
+    if (origShapeData.type === "text" && updatedShape.paragraphs) {
+        for(let p = 0; p < origShapeData.paragraphs.length; p++){
+             const origParagraph = origShapeData.paragraphs[p];
+             const updatedParagraph = updatedShape.paragraphs[p];
+
+             if(!updatedParagraph) continue;
+
+             // Filter the original runs to only keep the ones present in the updated paragraph
+              origParagraph.runs = origParagraph.runs.filter(run => {
+                return updatedParagraph.runs.some(newRun => newRun.id === run.id);
+              });
+
+           // Update the run text
+           for (const run of origParagraph.runs) {
+                    const newRun = updatedParagraph.runs.find((r) => r.id === run.id);
+                    if (newRun) {
+                        run.text = newRun.text;
+                    }
+           }
         }
-      }
+    
 
       // B) Now ensure updated paragraphs match original count
-      preserveParagraphBoundaries(
-        originalSegmentMap[shapeId].paragraphs,
-        origShapeData.paragraphs
-      );
+        preserveParagraphBoundaries(
+          originalSegmentMap[shapeId].paragraphs,
+          origShapeData.paragraphs
+        );
 
-      // B) Recalculate paragraph + run offsets
+      // C) Recalculate paragraph + run offsets
       recalcParagraphAndRunIndices(origShapeData);
-
     } else if (origShapeData.type === "table" && updatedShape.cells) {
       // updatedShape.cells is an object keyed by "row-col"
-      const shapeCells = updatedShape.cells; 
-    
+      const shapeCells = updatedShape.cells;
+
       for (const cellKey in shapeCells) {
         const cell = shapeCells[cellKey];
-        if (!cell.runs) continue; // or some check
-    
+        if (!cell.paragraphs) continue; // or some check
+
         // Find corresponding cell in originalSegmentMap
         const cellData = origShapeData.cells[cellKey];
         if (!cellData) continue;
-    
-        // 1) Copy run text
-        const updatedRuns = cell.runs;
-        for (const paragraph of cellData.paragraphs) {
-          for (const run of paragraph.runs) {
-            const newRun = updatedRuns.find(r => r.id === run.id);
-            if (newRun) {
-              run.text = newRun.text;
-            }
-          }
-        }
+
+          for (let p = 0; p < cellData.paragraphs.length; p++) {
+             const origParagraph = cellData.paragraphs[p];
+             const updatedParagraph = cell.paragraphs[p];
+
+             if(!updatedParagraph) continue;
+            // Filter original runs based on those existing in updated paragraph
+             origParagraph.runs = origParagraph.runs.filter(run => {
+                 return updatedParagraph.runs.some(newRun => newRun.id === run.id);
+             });
+
+              for (const run of origParagraph.runs) {
+                  const newRun = updatedParagraph.runs.find((r) => r.id === run.id);
+                  if (newRun) {
+                      run.text = newRun.text;
+                  }
+             }
+         }
+
 
         // 2) Now call preserveParagraphBoundaries
         //    just like you do with text shapes
@@ -76,14 +93,12 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
           originalSegmentMap[shapeId].cells[cellKey].paragraphs,
           cellData.paragraphs
         );
-        
+
         // 3) Recalculate indices
         recalcParagraphAndRunIndices(cellData);
       }
     }
 
-    // (Optionally) preserve the "customization" field, if desired
-    // e.g. segmentMapCopy[shapeId].customization = updatedShape.customization;
   }
 
   return segmentMapCopy;
