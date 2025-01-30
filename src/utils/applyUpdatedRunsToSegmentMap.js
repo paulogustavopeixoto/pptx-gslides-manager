@@ -49,10 +49,10 @@ function applyUpdatedRunsToSegmentMap(originalSegmentMap, updatedShapes) {
     
 
       // B) Now ensure updated paragraphs match original count
-        preserveParagraphBoundaries(
-          originalSegmentMap[shapeId].paragraphs,
-          origShapeData.paragraphs
-        );
+      preserveParagraphBoundaries(
+        originalSegmentMap[shapeId].paragraphs,
+        origShapeData.paragraphs
+      );
 
       // C) Recalculate paragraph + run offsets
       recalcParagraphAndRunIndices(origShapeData);
