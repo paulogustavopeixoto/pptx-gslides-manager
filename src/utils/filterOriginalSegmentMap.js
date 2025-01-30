@@ -8,27 +8,31 @@ function filterOriginalSegmentMap(originalSegmentMap) {
   for (const shapeId in originalSegmentMap) {
     const shapeData = originalSegmentMap[shapeId];
     if (shapeData.type === "text") {
-      const allRuns = [];
-      shapeData.paragraphs.forEach((paragraph) => {
-        paragraph.runs.forEach((r) => {
-          allRuns.push({ id: r.id, text: r.text });
-        });
+      const filteredParagraphs = [];
+      shapeData.paragraphs.forEach((paragraph, index) => { // Added index
+          const allRuns = [];
+          paragraph.runs.forEach((r) => {
+            allRuns.push({ id: r.id, text: r.text });
+          });
+          filteredParagraphs.push({ id: `paragraph-${index}`, runs: allRuns }); // Added paragraph ID
       });
       runsOnlyMap[shapeId] = {
         type: "text",
-        runs: allRuns,
+        paragraphs: filteredParagraphs,
       };
     } else if (shapeData.type === "table") {
       const filteredCells = {};
       for (const cellKey in shapeData.cells) {
         const cellData = shapeData.cells[cellKey];
-        const allRuns = [];
-        cellData.paragraphs.forEach((paragraph) => {
+        const filteredParagraphs = [];
+        cellData.paragraphs.forEach((paragraph, index) => { // Added index
+          const allRuns = [];
           paragraph.runs.forEach((r) => {
             allRuns.push({ id: r.id, text: r.text });
           });
+          filteredParagraphs.push({ id: `paragraph-${index}`, runs: allRuns }); // Added paragraph ID
         });
-        filteredCells[cellKey] = { runs: allRuns };
+        filteredCells[cellKey] = { paragraphs: filteredParagraphs };
       }
       runsOnlyMap[shapeId] = {
         type: "table",
