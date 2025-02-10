@@ -10,6 +10,7 @@ async function auth(SERVICE_ACCOUNT_KEY) {
   const scopes = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/presentations",
+    "https://www.googleapis.com/auth/documents"
   ];
 
   const jwtClient = new google.auth.JWT(
