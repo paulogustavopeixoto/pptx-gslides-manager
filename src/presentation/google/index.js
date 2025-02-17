@@ -7,6 +7,7 @@ const deletePresentation = require('./deletePresentation');
 const getPresentationText = require('./getPresentationText');
 const batchUpdateSlidesText = require('./batchUpdateSlides');
 const getPresentation = require('./getPresentation');
+const deleteSlide = require('./deleteSlide');
 
 
 module.exports = {
@@ -18,5 +19,6 @@ module.exports = {
     delete: deletePresentation,
     getPresentationText,
     batchUpdate: batchUpdateSlidesText,
-    getPresentation
+    getPresentation,
+    deleteSlide
 }
